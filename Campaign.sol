@@ -3,6 +3,19 @@
 // https://github.com/FarrisIsmati/campaign-solidity0.8.0/blob/master/contracts/Campaign.sol
 pragma solidity >=0.7.0 <0.9.0;
 
+contract CampaignFactory {
+    address[] public deployedCampaigns;
+
+    function createCampaign(uint minimum) public {
+        address campaignAddress = address(new Campaign(minimum, msg.sender));
+        deployedCampaigns.push(campaignAddress);
+    }
+
+    function getDeployedCampaigns() public view returns (address[] memory) {
+        return deployedCampaigns;
+    }
+}
+
 contract Campaign {
     // Creating a atructure
     struct Request{
@@ -13,6 +26,7 @@ contract Campaign {
         uint approvalCount;
         mapping(address => bool) approval;
     }
+
     // Initilizing request variable
     uint256 numRequests = 0;
     mapping(uint => Request) public requests;
@@ -22,13 +36,13 @@ contract Campaign {
     // address payable[] public approvers;
     mapping(address => bool) public approvers;
 
-     constructor(uint minimum) {
-        manager = msg.sender;
+    constructor(uint minimum, address creator) {
+        manager = creator;
         minimiumContribution = minimum;
     }
 
     function create_request(string memory description, uint value, address payable recipient) public lock{
-        require(approvers[msg.sender]);
+        // require(approvers[msg.sender]);
         uint256 requestID = numRequests++;
         Request storage r = requests[requestID];
         r.description = description;
@@ -64,5 +78,15 @@ contract Campaign {
 
         r.approval[msg.sender] = true;
         r.approvalCount++;
+    }
+
+    function finalizeRequest(uint256 requestId) public lock {
+        Request storage r = requests[requestId];
+        
+        require(!r.complete);
+        require(r.approvalCount > (approversCount/2));
+
+        r.recipient.transfer(r.value);
+        r.complete = true;
     }
 }
